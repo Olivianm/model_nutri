@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Diner Nutrition Predictor</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6f8;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+        }
+
+        h1 {
+            margin-top: 50px;
+            color: #333;
+        }
+
+        label {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            margin: 10px;
+            width: 250px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #722F37;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #9b3e49;
+        }
+
+        #result {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            width: 80%;
+            max-width: 500px;
+        }
+
+        #result p {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Nutrition Information</h1>
+    <label for="food">Enter food name:</label>
+    <input type="text" id="food" name="food">
+    <button onclick="getNutrition()">Get Nutrition Info</button>
+
+    <div id="result"></div>
+
+    <script>
+        function getNutrition() {
+            const foodName = document.getElementById('food').value;
+
+            fetch('/predict', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ food: foodName })
+            })
+            .then(async response => {
+                const contentType = response.headers.get("content-type");
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(`Server error: ${text}`);
+                }
+                if (!contentType || !contentType.includes("application/json")) {
+                    const text = await response.text();
+                    throw new Error(`Unexpected response: ${text}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    document.getElementById('result').innerHTML = `<p>Error: ${data.error}</p>`;
+                    if (data.similar && data.similar.length > 0) {
+                        document.getElementById('result').innerHTML += `<p>Did you mean: ${data.similar.join(', ')}</p>`;
+                    }
+                } else {
+                    const nutrients = data.nutrients;
+                    let nutrientInfo = '<h2>Nutrition Info:</h2>';
+                    for (const [key, value] of Object.entries(nutrients)) {
+                        nutrientInfo += `<p>${key}: ${value}</p>`;
+                    }
+                    document.getElementById('result').innerHTML = nutrientInfo;
+                }
+            })
+            .catch(error => {
+                document.getElementById('result').innerHTML = `<p>Error: ${error.message}</p>`;
+            });
+        }
+    </script>
+</body>
+</html>
