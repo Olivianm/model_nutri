@@ -41,37 +41,42 @@ def predict():
         app.logger.error("Model or pre-processing tools not loaded properly")
         return jsonify({'error': 'Model or pre-processing tools not loaded properly'}), 500
 
-    data = request.get_json()
-    food_name = data.get('food', '').strip().lower()
-
-    if not food_name:
-        app.logger.error("No food name provided")
-        return jsonify({'error': 'No food name provided'}), 400
-
-    if food_name not in label_classes_normalized:
-        # Suggest similar matches
-        similar = [food for food in label_classes_normalized if food_name in food][:3]
-        app.logger.warning(f"Food '{food_name}' not found, suggesting: {similar}")
-        return jsonify({
-            'error': f"'{food_name}' not found in database",
-            'similar': similar
-        }), 404
-
     try:
-        app.logger.info(f"Processing prediction for food: {food_name}")
+        app.logger.info("Received predict request")
+        data = request.get_json()
+        if not data:
+            app.logger.error("No data received")
+            return jsonify({'error': 'No data received'}), 400
+
+        food_name = data.get('food', '').strip().lower()
+        app.logger.info(f"Input: food_name={food_name}")
+
+        if not food_name:
+            app.logger.error("No food name provided")
+            return jsonify({'error': 'No food name provided'}), 400
+
+        if food_name not in label_classes_normalized:
+            similar = [food for food in label_classes_normalized if food_name in food][:3]
+            app.logger.warning(f"'{food_name}' not found in database, suggesting similar: {similar}")
+            return jsonify({
+                'error': f"'{food_name}' not found in database",
+                'similar': similar
+            }), 404
+
         # Encode food name and check shape
+        app.logger.info("Encoding food name")
         food_encoded = label_encoder.transform([food_name])
         food_features = np.array(food_encoded).reshape(1, -1)
-        app.logger.debug(f"Encoded features shape: {food_features.shape}")
+        app.logger.info(f"Encoded food features shape: {food_features.shape}")
 
         # Get prediction and apply scaler
         app.logger.info("Making prediction")
         prediction_scaled = model.predict(food_features, verbose=0)
-        app.logger.debug(f"Prediction scaled: {prediction_scaled}")
+        app.logger.info("Inverse transforming prediction")
         prediction = scaler.inverse_transform(prediction_scaled)
-        app.logger.debug(f"Prediction after scaling: {prediction}")
 
         # Process the nutrients
+        app.logger.info("Processing nutrients")
         nutrients = {
             col: round(float(val), 4)
             for col, val in zip([
@@ -79,8 +84,8 @@ def predict():
                 'Cholesterol (mg)', 'Phytosterols (mg)', 'SFA (g)', 'MUFA (g)', 'PUFA (g)'
             ], prediction[0])
         }
-        app.logger.info(f"Nutrients predicted: {nutrients}")
 
+        app.logger.info(f"Prediction successful for {food_name}: {nutrients}")
         return jsonify({
             'food': food_name,
             'nutrients': nutrients,
@@ -92,5 +97,5 @@ def predict():
         return jsonify({'error': str(e), 'status': 'error'}), 500
 
 if __name__ == '_main_':
-    port = int(os.environ.get("PORT", 5001))  # Use a different port for this app
+    port = int(os.environ.get("PORT", 5001))
     app.run(host="0.0.0.0", port=port, debug=False)
