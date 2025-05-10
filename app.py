@@ -1,12 +1,18 @@
 import os
+import logging
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import joblib
 import numpy as np
 from tensorflow.keras.models import load_model
 
-# Disable oneDNN optimization warnings
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+# Suppress TensorFlow GPU and optimization warnings
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Disable oneDNN optimizations
+os.environ['CUDA_VISIBLE_DEVICES'] = ''  # Disable GPU usage
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Suppress TensorFlow info and warning logs (errors will still show)
+
+# Configure Flask logging
+logging.getLogger('tensorflow').setLevel(logging.ERROR)  # Suppress TensorFlow warnings in logs
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -91,11 +97,12 @@ def predict():
             'nutrients': nutrients,
             'status': 'success'
         })
-
     except Exception as e:
         app.logger.error(f"Error during prediction: {str(e)}")
         return jsonify({'error': str(e), 'status': 'error'}), 500
 
-if __name__ == '_main_':
+if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5001))
     app.run(host="0.0.0.0", port=port, debug=False)
+    
+    
