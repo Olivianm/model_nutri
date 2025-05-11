@@ -5,20 +5,30 @@ import numpy as np
 import os
 
 app = Flask(__name__)
-CORS(app, resources={r"/predict": {"origins": "*"}})
+CORS(app)
 
-# Load model and tools
+# Improved model loading
+def load_models():
+    try:
+        # Load with explicit joblib version
+        model = joblib.load('nutrition_model.pkl')
+        label_encoder = joblib.load('label_encoder.pkl')
+        
+        # Verify model is loaded properly
+        if hasattr(model, 'predict'):
+            print("Model loaded successfully")
+            return model, label_encoder
+        raise Exception("Model doesn't have predict method")
+    except Exception as e:
+        print(f"Error loading model: {str(e)}")
+        raise
+
 try:
-    app.logger.info("Loading model and preprocessing tools")
-    model = joblib.load('nutrition_model.pkl')
-    label_encoder = joblib.load('label_encoder.pkl')
-    
-    # Normalize label classes for matching input
+    model, label_encoder = load_models()
     label_classes_normalized = [label.lower() for label in label_encoder.classes_]
-    app.logger.info("Model and preprocessing tools loaded successfully.")
 except Exception as e:
-    app.logger.error(f"Error loading model files: {str(e)}")
-    exit()
+    print(f"Failed to load models: {str(e)}")
+    exit(1)
 
 @app.route('/')
 def home():
