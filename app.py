@@ -4,6 +4,7 @@ from flask_cors import CORS
 import joblib
 import numpy as np
 from tensorflow.keras.models import load_model
+import pickle
 
 # Disable oneDNN optimization warnings
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
@@ -12,19 +13,23 @@ os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 app = Flask(__name__)
 CORS(app, resources={r"/predict": {"origins": "*"}})  # Allow all origins for predict endpoint
 
+import pickle
+
 # Load the model and tools
 try:
     app.logger.info("Loading model and preprocessing tools")
-    model = load_model('nutrition_model.h5', compile=False)  # Load .h5 file directly
-    label_encoder = joblib.load('label_encoder.pkl')  # Load .pkl file directly
-    scaler = joblib.load('scaler.pkl')  # Load .pkl file directly
     
+    with open('nutrition_model.pkl', 'rb') as f:
+        model, scaler, label_encoder = pickle.load(f)
+
     # Load normalized label classes for validation
     label_classes_normalized = [label.lower() for label in label_encoder.classes_]
+
     app.logger.info("Model and preprocessing tools loaded successfully")
 except Exception as e:
     app.logger.error(f"Error loading model files: {str(e)}")
     exit()
+
 
 @app.route('/')
 def home():
