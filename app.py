@@ -7,6 +7,10 @@ import os
 app = Flask(__name__)
 CORS(app)
 
+from flask_cors import CORS
+CORS(app)
+
+
 # Improved model loading
 def load_models():
     try:
