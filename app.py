@@ -14,16 +14,10 @@ CORS(app, resources={r"/predict": {"origins": "*"}})  # Allow all origins for pr
 
 # Load the model and tools
 try:
-    with open('nutrition_model.h5', 'rb') as f:
-        model = load_model(f, compile=False)  # Compile False avoids the mse bug
+    model = load_model('nutrition_model.h5', compile=False)  # Correct way
+    label_encoder = joblib.load('label_encoder.pkl')
+    scaler = joblib.load('scaler.pkl')
 
-    with open('label_encoder.pkl', 'rb') as f:
-        label_encoder = joblib.load(f)
-
-    with open('scaler.pkl', 'rb') as f:
-        scaler = joblib.load(f)
-    
-    # Load normalized label classes for validation
     label_classes_normalized = [label.lower() for label in label_encoder.classes_]
     app.logger.info("Model and preprocessing tools loaded successfully")
 except Exception as e:
@@ -32,6 +26,7 @@ except Exception as e:
     label_encoder = None
     scaler = None
     exit()
+
 
 @app.route('/')
 def home():
