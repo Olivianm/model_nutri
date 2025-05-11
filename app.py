@@ -1,38 +1,24 @@
-import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import joblib
 import numpy as np
-from tensorflow.keras.models import load_model
-import pickle
+import os
 
-
-
-# Disable oneDNN optimization warnings
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-
-
-# Initialize Flask app
 app = Flask(__name__)
-CORS(app, resources={r"/predict": {"origins": "*"}})  # Allow all origins for predict endpoint
+CORS(app, resources={r"/predict": {"origins": "*"}})
 
 # Load model and tools
 try:
     app.logger.info("Loading model and preprocessing tools")
-
-    model = load_model('nutrition_model.keras', compile=False)  # Load Keras model
-    scaler = joblib.load('scaler.pkl')                          # Load scaler
-    label_encoder = joblib.load('label_encoder.pkl')            # Load label encoder
-
+    model = joblib.load('nutrition_model.pkl')
+    label_encoder = joblib.load('label_encoder.pkl')
+    
     # Normalize label classes for matching input
     label_classes_normalized = [label.lower() for label in label_encoder.classes_]
-
     app.logger.info("Model and preprocessing tools loaded successfully.")
 except Exception as e:
     app.logger.error(f"Error loading model files: {str(e)}")
     exit()
-
-
 
 @app.route('/')
 def home():
@@ -55,9 +41,8 @@ def predict():
         food_encoded = label_encoder.transform([food_name])
         food_features = np.array(food_encoded).reshape(1, -1)
 
-        # Predict and scale
-        prediction_scaled = model.predict(food_features, verbose=0)
-        prediction = scaler.inverse_transform(prediction_scaled)
+        # Predict
+        prediction = model.predict(food_features)
 
         # Format output
         nutrients = {
@@ -74,7 +59,6 @@ def predict():
         app.logger.error(f"Prediction error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5001))  # Use a different port for this app
+    port = int(os.environ.get("PORT", 5001))
     app.run(host="0.0.0.0", port=port, debug=False)
