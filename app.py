@@ -1,78 +1,57 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask import Flask, render_template, request, jsonify
 import joblib
 import numpy as np
-import os
+import pandas as pd
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 
 app = Flask(__name__)
-CORS(app)
 
-from flask_cors import CORS
-CORS(app)
+# Load the trained model and preprocessing artifacts
+model = joblib.load('nutrition_model.pkl')
+label_encoder = joblib.load('label_encoder.pkl')
+scaler = joblib.load('scaler.pkl')
 
-
-# Improved model loading
-def load_models():
-    try:
-        # Load with explicit joblib version
-        model = joblib.load('nutrition_model.pkl')
-        label_encoder = joblib.load('label_encoder.pkl')
-        
-        # Verify model is loaded properly
-        if hasattr(model, 'predict'):
-            print("Model loaded successfully")
-            return model, label_encoder
-        raise Exception("Model doesn't have predict method")
-    except Exception as e:
-        print(f"Error loading model: {str(e)}")
-        raise
-
-try:
-    model, label_encoder = load_models()
-    label_classes_normalized = [label.lower() for label in label_encoder.classes_]
-except Exception as e:
-    print(f"Failed to load models: {str(e)}")
-    exit(1)
+# Create a reverse mapping for food names
+food_names = label_encoder.inverse_transform(range(len(label_encoder.classes_)))
+food_options = sorted([food.title() for food in food_names])
 
 @app.route('/')
 def home():
-    return jsonify({'status': 'Nutrition Model API is running'})
+    return render_template('index.html', food_options=food_options)
 
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        data = request.get_json() or request.form
-        food_name = data.get('food', '').strip().lower()
-
-        if not food_name:
-            return jsonify({'error': 'No food name provided'}), 400
-
-        if food_name not in label_classes_normalized:
-            similar = [f for f in label_classes_normalized if food_name in f][:3]
-            return jsonify({'error': f"'{food_name}' not found", 'similar': similar}), 404
-
-        # Encode and reshape
-        food_encoded = label_encoder.transform([food_name])
-        food_features = np.array(food_encoded).reshape(1, -1)
-
-        # Predict
-        prediction = model.predict(food_features)
-
-        # Format output
-        nutrients = {
-            col: round(float(val), 4)
-            for col, val in zip([
-                'Water (g)', 'Protein (g)', 'Fat (g)', 'Total carbohydrate (g)',
-                'Cholesterol (mg)', 'Phytosterols (mg)', 'SFA (g)', 'MUFA (g)', 'PUFA (g)'
-            ], prediction[0])
+        # Get food name from form
+        food_name = request.form['food_name'].lower().strip()
+        
+        # Encode the food name
+        try:
+            food_encoded = label_encoder.transform([food_name])[0]
+        except ValueError:
+            return jsonify({'error': 'Food not found in database'})
+        
+        # Scale the feature
+        X_scaled = scaler.transform([[food_encoded]])
+        
+        # Make prediction
+        prediction = model.predict(X_scaled)[0]
+        
+        # Prepare results
+        nutrients = [
+            'Water (g)', 'Protein (g)', 'Fat (g)', 'Total carbohydrate (g)',
+            'Cholesterol (mg)', 'Phytosterols (mg)', 'SFA (g)', 'MUFA (g)', 'PUFA (g)'
+        ]
+        
+        results = {
+            'food': food_name.title(),
+            'nutrients': {nutrient: round(value, 2) for nutrient, value in zip(nutrients, prediction)}
         }
-
-        return jsonify({'food': food_name, 'nutrients': nutrients, 'status': 'success'})
-
+        
+        return jsonify(results)
+    
     except Exception as e:
-        app.logger.error(f"Prediction error: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': str(e)})
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5001))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(debug=True)

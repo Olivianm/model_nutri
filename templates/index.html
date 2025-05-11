@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nutrition Predictor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: white;
+            color: #722F37;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(114, 47, 55, 0.1);
+        }
+        h1 {
+            color: #722F37;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        select, button {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #722F37;
+            border-radius: 5px;
+            font-size: 16px;
+            background-color: white;
+            color: #722F37;
+        }
+        button {
+            background-color: #722F37;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #5a252c;
+        }
+        #results {
+            margin-top: 30px;
+            display: none;
+        }
+        .result-card {
+            background-color: #f9f2f3;
+            border-left: 5px solid #722F37;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 0 5px 5px 0;
+        }
+        .nutrient-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e0c8cb;
+        }
+        .nutrient-name {
+            font-weight: bold;
+        }
+        .error {
+            color: #d9534f;
+            background-color: #fdf3f3;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Nutrition Predictor</h1>
+        
+        <div class="form-group">
+            <label for="food_name">Select a Food Item:</label>
+            <select id="food_name" name="food_name">
+                {% for food in food_options %}
+                <option value="{{ food }}">{{ food }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <button id="predict-btn">Get Nutrition Information</button>
+        
+        <div id="error" class="error"></div>
+        
+        <div id="results">
+            <h2>Nutrition Information for <span id="result-food"></span></h2>
+            <div id="nutrient-results"></div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('predict-btn').addEventListener('click', function() {
+            const foodName = document.getElementById('food_name').value;
+            const errorDiv = document.getElementById('error');
+            const resultsDiv = document.getElementById('results');
+            
+            // Hide previous results/errors
+            errorDiv.style.display = 'none';
+            resultsDiv.style.display = 'none';
+            
+            // Show loading state
+            this.textContent = 'Loading...';
+            this.disabled = true;
+            
+            fetch('/predict', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `food_name=${encodeURIComponent(foodName)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                this.textContent = 'Get Nutrition Information';
+                this.disabled = false;
+                
+                if (data.error) {
+                    errorDiv.textContent = data.error;
+                    errorDiv.style.display = 'block';
+                    return;
+                }
+                
+                // Display results
+                document.getElementById('result-food').textContent = data.food;
+                const nutrientResults = document.getElementById('nutrient-results');
+                nutrientResults.innerHTML = '';
+                
+                for (const [nutrient, value] of Object.entries(data.nutrients)) {
+                    const row = document.createElement('div');
+                    row.className = 'nutrient-row';
+                    
+                    const nameSpan = document.createElement('span');
+                    nameSpan.className = 'nutrient-name';
+                    nameSpan.textContent = nutrient;
+                    
+                    const valueSpan = document.createElement('span');
+                    valueSpan.textContent = value;
+                    
+                    row.appendChild(nameSpan);
+                    row.appendChild(valueSpan);
+                    nutrientResults.appendChild(row);
+                }
+                
+                resultsDiv.style.display = 'block';
+            })
+            .catch(error => {
+                this.textContent = 'Get Nutrition Information';
+                this.disabled = false;
+                errorDiv.textContent = 'An error occurred. Please try again.';
+                errorDiv.style.display = 'block';
+                console.error('Error:', error);
+            });
+        });
+    </script>
+</body>
+</html>
